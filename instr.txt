@@ -1,3 +1,0 @@
-"devStart": "nodemon server.js" -- server package json
-"start": "node server", ++ server package json
-"dev": "nodemon server" ++ server package json
