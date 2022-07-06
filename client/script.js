@@ -1,6 +1,5 @@
 // Імпорт socket.io-client
-import { io } from 'socket.io-client'
-import { mobileSizing, changeGrid } from './mobile'
+import { mobileSizing, changeGrid } from './mobile.js'
 
 let ships
 
@@ -42,7 +41,7 @@ let shotFired = -1
 let enemyNickname
 
 // Підключення до серверу за посиланням
-const socket = io('http://localhost:3000')
+const socket = io()
 
 // Моніторинг зміни розміру екрана
 setWdSize()

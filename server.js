@@ -11,7 +11,7 @@ const io = require('socket.io')(server, {
 })// ++/
 // const io = soketio(server) // ++/
 
-app.use(express.static(path.join(__dirname, "public"))) // ++/
+app.use(express.static(path.join(__dirname, "client"))) // ++/
 
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`)) // ++/
 
