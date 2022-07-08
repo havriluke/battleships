@@ -1,4 +1,3 @@
-// Імпорт socket.io-client
 import { mobileSizing, changeGrid } from './mobile.js'
 
 let ships
@@ -11,6 +10,7 @@ const computerGrid = document.querySelector('.grid-computer')
 const displayGrid = document.querySelector('.grid-display')
 const startButton = document.querySelector('#start')
 const rotateButton = document.querySelector('#rotate')
+const setShipButton = document.querySelector('#set-ship')
 const replayButton = document.querySelector('#play-again')
 const exitButton = document.querySelector('#exit-room')
 const turnDisplay = document.querySelector('.turn')
@@ -21,15 +21,14 @@ const createRoomButton = document.getElementById('create-room')
 const joinRoomButton = document.getElementById('join-room')
 const errorLabel = document.querySelector('.error-label')
 const gameCode = document.querySelector('.game-code')
+const timerElement = document.querySelector('.timer')
 
 // Ініціалізація ігрових змінних
 let wdWidth
-let wdHeight
 let userSquares = []
 let computerSquares = []
 let isHorizontal = true
 let isGameOver = false
-let isInGame = false
 let gameBegin = false
 let currentPlayer = 'user'
 const width = 10
@@ -39,6 +38,7 @@ let enemyReady = false
 let allShipsPlaced = false
 let shotFired = -1
 let enemyNickname
+let isShotAnimation = false
 
 // Підключення до серверу за посиланням
 const socket = io()
@@ -47,11 +47,9 @@ const socket = io()
 setWdSize()
 function setWdSize() {
     wdWidth = window.innerWidth
-    wdHeight = window.innerHeight
-    mobileSizing(wdWidth, gameBegin, isInGame, currentPlayer)
+    mobileSizing(wdWidth, gameBegin, currentPlayer)
 }
 window.addEventListener('resize', setWdSize)
-
 
 // Обробка натискання кнопки "Створити кімнату"
 createRoomButton.addEventListener('click', clickCreate)
@@ -62,6 +60,7 @@ function clickCreate() {
     }
     // Еміт створення кімнати
     socket.emit('create-room', nicknameInput.value)
+    setWdSize()
 }
 
 // Обробка натискання кнопки "Приєднатися"
@@ -72,6 +71,18 @@ function clickJoin() {
     if (nicknameInput.value === '' || joinRoomInput.value === '') return
     // Еміт приєднання до кімнати
     socket.emit('join-room', joinRoomInput.value, nicknameInput.value)
+    setWdSize()
+}
+
+// Обробка копіювання коду кімнати
+gameCode.addEventListener('click', copyCode)
+document.querySelector('.copy-symb').addEventListener('click', copyCode)
+function copyCode() {
+    navigator.clipboard.writeText(gameCode.textContent)
+    document.querySelector('.copy-symb').src = 'img/check-line.svg'
+    setTimeout(() => {
+        document.querySelector('.copy-symb').src = 'img/file-copy-line.svg'
+    }, 10000);
 }
 
 // Запуск гри
@@ -91,12 +102,19 @@ socket.on('nick-error', () => {
     errorLabel.innerHTML = `Нікнейм недоступний`
 })
 
+// Запуск таймеру
+socket.on('set-timer', (num) => {
+    setTimerCount(num)
+})
+socket.on('timer-out', () => {
+    timerOut()
+})
+
 // Функція запуску гри
 function startGame() {
     createBoard(userGrid, userSquares)
     createBoard(computerGrid, computerSquares)
     createShips(displayGrid)
-    isInGame = true
     squaresSetup()
 }
 
@@ -145,25 +163,29 @@ function startMultiPlayer() {
     })
 
     // Обробка натискання кнопки "Готовність"
-    startButton.addEventListener('click', () => {
+    startButton.addEventListener('click', clickStart)
+    async function clickStart() {
         if(allShipsPlaced) {
             if (enemyNickname !== '...') {
+                await setPause(0.1)
                 startButton.style.display = 'none'
                 playGameMulti(socket)
             }
             else fillInfoDisplay(`Зачекайте суперника`)
         }
         else fillInfoDisplay(`Спочатку розстав усі кораблі`)
-    })
+    }
 
     // Обробка натискання кнопки "Грати знову"
-    replayButton.addEventListener('click', () => {
+    replayButton.addEventListener('click', clickReplay)
+    async function clickReplay() {
+        await setPause(0.1)
         if (!isGameOver) return
         replayButton.disabled = true
         replayButton.classList.add('button-disabled')
         // Еміт грати знову
         socket.emit('replay', playerNum)
-    })
+    }
 
     // Обробка натискання кнопки "Вийти"
     exitButton.addEventListener('click', clickExit)
@@ -213,21 +235,34 @@ function squaresSetup() {
     // Установка гральної сітки сітки суперника
     computerSquares.forEach(square => {
         // Обробка натискання на плитку (пострілу)
-        square.addEventListener('click', () => {
-            const isSquareBoomed = square.classList.contains('boom') || square.classList.contains('miss')
-            if(currentPlayer === 'user' && ready && enemyReady && !isSquareBoomed) {
-                shotFired = square.dataset.id
-                // Надсилання серверу id клітинки пострілу
-                socket.emit('fire', shotFired)
-            }
-        })
+        square.addEventListener('click', handleShot)
     })
-    // Установка подій перетаскування для кораблів
+    // Установка подій перетаскування для кораблів (мишка)
     ships.forEach(ship => ship.addEventListener('dragstart', dragStart))
     userSquares.forEach(square => square.addEventListener('dragstart', dragStart))
     userSquares.forEach(square => square.addEventListener('dragover', dragOver))
     userSquares.forEach(square => square.addEventListener('drop', dragDrop))
     userSquares.forEach(square => square.addEventListener('dragleave', dragLeave))
+
+    // Установка подій перетаскування для кораблів (екран)
+    ships.forEach(ship => ship.addEventListener('touchstart', touchStart))
+    document.addEventListener('touchstart', cancelDragShip)
+    userGrid.addEventListener('touchstart', setDraggedShip)
+    setShipButton.addEventListener('touchstart', setShip)
+}
+async function handleShot(e) {
+    const square = e.path[0]
+    const isSquareBoomed = square.classList.contains('miss') || square.classList.contains('boom')
+    if(currentPlayer === 'user' && ready && enemyReady && !isSquareBoomed && timerCount > 1 && !isShotAnimation) {
+        isShotAnimation = true
+        shotFired = square.dataset.id
+        square.classList.add('checked')
+        await waitForAnimation(square)
+        square.classList.remove('checked')
+        // Надсилання серверу id клітинки пострілу
+        socket.emit('fire', shotFired)
+        isShotAnimation = false
+    }
 }
 
 // Функція створення грідів
@@ -266,12 +301,12 @@ let allowedIds
 let lastDragId
 let busyIds = []
 
+//      Функції перетягування (мишка)
 // Обробка початку перетягування
 function dragStart() {
     draggedShip = this
     draggedShipLength = this.childNodes.length
 }
-
 // Обробка клітинки через яку було перетягнуто корабель
 function dragLeave(e) {
     e.preventDefault()
@@ -288,11 +323,12 @@ function dragLeave(e) {
         }
     } catch {}
 }
-
 // Обробка клітинки через яку перетягується корабель
 function dragOver(e) {
+    if (draggedShip === undefined) return
+    userSquares.forEach(cell => cell.classList.remove('draged-over'))
     e.preventDefault()
-    let dragCell = parseInt(this.dataset.id)
+    let dragCell = parseInt(e.path[0].dataset.id)
     let shipCells = []
     if (isHorizontal) {
         for (let i=0; i<draggedShipLength; i++) shipCells.push(dragCell+i)
@@ -315,7 +351,6 @@ function dragOver(e) {
         } else lastDragId = undefined
     } else allowedIds = []
 }
-
 // Обробка кінця перетягування, установка рорабля на сітку
 function dragDrop() {
     userSquares.forEach(us => us.classList.remove('draged-over'))
@@ -351,8 +386,69 @@ function dragDrop() {
         allShipsPlaced = true
         startButton.style.display = 'block'
         rotateButton.style.display = 'none'
-        // document.querySelector('.game__container').style.marginTop = '100px'
     }
+}
+
+//      Функції перетягування (екран)
+// Обробка вибору корабля
+function touchStart(e) {
+    if (draggedShip !== e.path[1]) {
+        ships.forEach(ship => ship.classList.remove('dragged'))
+        userSquares.forEach(cell => cell.classList.remove('draged-over'))
+        rotateButton.style.display = 'block'
+        setShipButton.style.display = 'none'
+        draggedShip = undefined
+        draggedShipLength = undefined
+        lastDragId = undefined
+    }
+    if (!e.path[1].classList.contains('ship')) return
+    draggedShip = e.path[1]
+    draggedShipLength = draggedShip.childNodes.length
+    draggedShip.classList.add('dragged')
+}
+// Обробка скасування вибору корабля
+function cancelDragShip(e) {
+    if (draggedShip === undefined) return
+    const touchedElements = e.path
+    let doCancel = true
+    touchedElements.slice(0, -2).forEach(touchElem => {
+        if (touchElem === draggedShip || touchElem.classList.contains('grid-user') || lastDragId === undefined ||
+            touchElem.classList.contains('set-ship') || touchElem.classList.contains('rotate')) doCancel = false
+    })
+    if (doCancel) {
+        draggedShip.classList.remove('dragged')
+        draggedShip = undefined
+        draggedShipLength = undefined
+        lastDragId = undefined
+        rotateButton.style.display = 'block'
+        setShipButton.style.display = 'none'
+        userSquares.forEach(cell => cell.classList.remove('draged-over'))
+    }
+}
+// Обробка установки корабля
+function setDraggedShip(e) {
+    if (allShipsPlaced) return
+    dragOver(e)
+    if (draggedShip === undefined) lastDragId = undefined
+    if (lastDragId !== undefined) {
+        rotateButton.style.display = 'none'
+        setShipButton.style.display = 'block'
+    } else {
+        rotateButton.style.display = 'block'
+        setShipButton.style.display = 'none'
+    }
+}
+// Підтвердження установки корабля
+async function setShip() {
+    await setPause(0.1)
+    dragDrop()
+    if (allShipsPlaced !== true) {
+        rotateButton.style.display = 'block'
+        setShipButton.style.display = 'none'
+    } else setShipButton.style.display = 'none'
+    draggedShip = undefined
+    draggedShipLength = undefined
+    lastDragId = undefined
 }
 
 
@@ -371,17 +467,20 @@ function playGameMulti(socket) {
         turnDisplay.style.display ='block'
         displayGrid.style.display = 'none'
         document.querySelector('.scores').style.display = 'flex'
-    }
-    // Установка ходу
-    if(enemyReady) {
+        timerElement.style.display = 'flex'
+        if (wdWidth <= 900) changeGrid(currentPlayer === 'user')
+        // Установка ходу
         if(currentPlayer === 'user') {
-            if (wdWidth <= 900) changeGrid(true)
             turnDisplay.innerHTML = 'Ваш хід'
         }
         if(currentPlayer === 'enemy') {
-            if (wdWidth <= 900) changeGrid(false)
             turnDisplay.innerHTML = `Хід суперника`
         }
+        // Запуск таймеру хостом
+        if (playerNum === 0) {
+            setTimer(10)
+        }
+        // socket.emit('start-timer')
     }
 }
 
@@ -472,7 +571,7 @@ function revealSquare(classList) {
 // Обробка ворожого пострілу
 function enemyGo(square) {
     if (isGameOver) return
-    if (!userSquares[square].classList.contains('boom') && !userSquares[square].classList.contains('miss')) {
+    if (!userSquares[square].classList.contains('miss') && !userSquares[square].classList.contains('boom')) {
         if (userSquares[square].classList.contains('taken')) {
             userSquares[square].classList.add('boom')
             if (userSquares[square].classList.contains('single-deck-1')) uSingleDeck1Count++
@@ -581,6 +680,8 @@ function gameOver() {
     isGameOver = true
     replayButton.style.display = 'block'
     exitButton.style.display = 'block'
+    clearInterval(currentInterval)
+    timerElement.style.display = 'none'
 }
 
 // Функція установки недоступних клітинок після встановлення корабля
@@ -588,13 +689,15 @@ function fillBusy(busyId) {
     busyIds.push(busyId)
     busyIds.push(busyId+width)
     busyIds.push(busyId-width)
-    if (busyId % width === 0) {
+    if (busyId%width < (busyId+1)%width) {
         busyIds.push(busyId+1)
-    } else if (busyId % width === 9) {
+        busyIds.push(busyId+1+width)
+        busyIds.push(busyId+1-width)
+    }
+    if (busyId%width > (busyId-1)%width && busyId !== 0) {
         busyIds.push(busyId-1)
-    } else {
-        busyIds.push(busyId+1)
-        busyIds.push(busyId-1)
+        busyIds.push(busyId-1+width)
+        busyIds.push(busyId-1-width)
     }
     busyIds.filter(b => 0 <= b <= 99)
     busyIds = [...new Set(busyIds)]
@@ -654,6 +757,7 @@ function replay() {
     ready = false
     enemyReady = false
     allShipsPlaced = false
+    isShotAnimation = false
     shotFired = -1
     busyIds = []
     boomedShipsIds = []
@@ -668,9 +772,10 @@ function replay() {
     turnDisplay.style.display = 'none'
     displayGrid.style.display = 'flex'
     exitButton.style.display = 'block'
+    timerElement.style.display = 'none'
     document.querySelector('.scores').style.display = 'none'
-    // document.querySelector('.game__container').style.marginTop = '20px'
     refillScore()
+    mobileSizing(wdWidth, gameBegin, currentPlayer)
 
     for (let i=1; i<=2; i++){
         document.querySelector(`.p${i} .ready`).classList.remove('green')
@@ -683,4 +788,42 @@ function fillInfoDisplay(text) {
     setTimeout(() => {
         infoDisplay.innerHTML = ``
     }, 5000)
+}
+
+
+function waitForAnimation(element) {
+    return new Promise(resolve => {
+        return element.addEventListener("animationend", resolve, {once: true})
+    })
+}
+
+function setPause(sec) {
+    return new Promise(resolve => {
+        return setTimeout(resolve, sec*1000);
+    })
+}
+
+let timerCount
+let currentInterval
+function setTimer(secs) {
+    clearInterval(currentInterval)
+    socket.emit('set-timer', secs)
+    secs--
+    currentInterval = setInterval(function() {
+        if (secs <= 0) {
+            socket.emit('timer-out')
+        } else {
+            socket.emit('set-timer', secs)
+            secs--
+        }
+    }, 1000)
+}
+function setTimerCount(num) {
+    timerCount = num
+    timerElement.querySelector('span').innerHTML = num - 1
+}
+function timerOut() {
+    currentPlayer = currentPlayer === 'user' ? 'enemy' : 'user'
+    mobileSizing(wdWidth, gameBegin, currentPlayer)
+    playGameMulti(socket)
 }

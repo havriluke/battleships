@@ -36,8 +36,12 @@ body {
   height: 100%;
   display: flex;
   flex-direction: column;
-  justify-content: space-around;
+  justify-content: center;
 }
+.menu__container > div {
+  margin: 10px 0;
+}
+
 .menu__content {
   display: flex;
   flex-direction: column;
@@ -187,6 +191,11 @@ button:hover {
   font-weight: 600;
   margin: 0 0 0 10px;
   justify-self: center;
+  cursor: pointer;
+}
+.copy-symb {
+  margin-left: 5px;
+  cursor: pointer;
 }
 
 .players {
@@ -281,6 +290,31 @@ button:hover {
   font-size: 16px;
 }
 
+.grid-visible {
+  animation: g-visible 0.5s ease 0s 1 normal none;
+  display: block;
+}
+.grid-invisible {
+  animation: g-invisible 0.5s ease 0s 1 normal none;
+  display: none;
+}
+@keyframes g-visible {
+  0% {
+    transform: translate(-100%, 0);
+  }
+  100% {
+    transform: translate(0, 0);
+  }
+}
+@keyframes g-invisible {
+  0% {
+    transform: translate(0, 0);
+  }
+  100% {
+    transform: translate(100%, 0);
+  }
+}
+
 .grid div {
   border: 0.5px solid var(--bgc);
   position: relative;
@@ -288,9 +322,9 @@ button:hover {
 .grid-computer div {
   cursor: pointer;
 }
-.grid-computer div:hover {
+/* .grid-computer div:hover {
   background-color: var(--blue-color);
-}
+} */
 
 .grid-display {
   flex-direction: column;
@@ -319,6 +353,11 @@ button:hover {
 }
 .ship-vertical {
   flex-direction: column;
+}
+
+.dragged {
+  border: 2px solid var(--blue-color);
+  background-color: rgba(255, 255, 255, 0.5);
 }
 
 .ship div {
@@ -379,7 +418,7 @@ button:hover {
 .scores {
   display: flex;
   justify-content: space-between;
-  margin: 25px 0 0 15px;
+  margin: 25px 20px 0;
 }
 .score {
   display: flex;
@@ -411,6 +450,46 @@ button:hover {
 }
 .ship-score-4 {
   width: 100px;
+}
+
+.timer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.timer-number {
+  align-self: center;
+  font-size: 18px;
+  font-weight: bold;
+  color: var(--font-color);
+  border: 3px solid var(--blue-color);
+  border-radius: 50%;
+  width: 30px; height: 30px;
+  background-color: rgba(255, 255, 255, 0.3);
+  margin: 0 0 10px;
+  cursor: default;
+  text-align: center;
+  line-height: 1.75;
+}
+
+
+.checked::before {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  background-color: var(--bgc);
+  transform: translate(-50%, -50%);
+  animation: shot 0.5s ease 0s 1 normal none;
+}
+@keyframes shot {
+  0% {
+    width: 100%; height: 100%;
+    border-radius: 10px;
+  }
+  100% {
+    width: 0; height: 0;
+    border-radius: 50%;
+  }
 }
 
 
@@ -530,12 +609,19 @@ button:hover {
     left: 0;
   }
 
+  .scores {
+    justify-content: space-around;
+  }
   .score {
     flex-direction: column;
   }
   .computer-score {
     align-items: end;
   }
+  .computer-score > .ship-score:first-child {order: 4;}
+  .computer-score > .ship-score:nth-child(2) {order: 3;}
+  .computer-score > .ship-score:nth-child(3) {order: 2;}
+  .computer-score > .ship-score:last-child {order: 1;}
 }
 
 @media (max-width: 627px) {
@@ -543,7 +629,6 @@ button:hover {
     font-size: 54px;
   }
 }
-
 
 @media (max-width: 575px) {
   .title {
@@ -596,11 +681,14 @@ button:hover {
   }
   .game-code-cont {
     flex: 100%;
-    margin-bottom: 5px;
+    margin-bottom: 15px;
   }
   .turn {
     flex: 100%;
     margin: 10px 0;
+  }
+  .timer {
+    flex: 100%;
   }
 }
 
@@ -617,7 +705,6 @@ button:hover {
     width: 130px;
   }
 }
-
 
 @media (max-width: 380px) {
   .boards {

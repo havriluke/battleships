@@ -135,6 +135,14 @@ io.on('connection', socket => {
         socket.on('replay', (num) => {
             io.to(code).emit('replay', num)
         })
+
+        // Обробка запуску таймера
+        socket.on('set-timer', (timerCount) => {
+            io.to(code).emit('set-timer', timerCount)
+        })
+        socket.on('timer-out', () => {
+            io.to(code).emit('timer-out')
+        })
     }
 
     // Створення кімнати

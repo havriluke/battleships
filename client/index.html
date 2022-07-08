@@ -37,7 +37,9 @@
   <div class="game" style="display: none;">
 
     <div class="game__container">
-      <div class="game-code-cont">Код кімнати: <div class="game-code"></div></div>
+      <div class="game-code-cont">Код кімнати: <div class="game-code"></div>
+      <img src="img/file-copy-line.svg" alt="" class="copy-symb">
+    </div>
 
       <div class="game-content__container">
 
@@ -61,12 +63,14 @@
               <span>ваша сітка</span>
             </div>
             <div class="board-buttons">
-              <div class="pointer turn" id="whose-go" style="display: none;"></div>
-              <button class="pointer" id="rotate" style="display: block;">Обернути</button>
+              <div class="pointer turn" id="turn" style="display: none;"></div>
+              <div class="timer" id="timer" style="display: none;"><span class="timer-number">0</span></div>
+              <button class="pointer rotate" id="rotate" style="display: block;">Обернути</button>
+              <button class="pointer set-ship" id="set-ship" style="display: none;">Поставити</button>
               <!-- ⭯ -->
-              <button class="pointer" id="start" style="display: none;">Готовність</button>
-              <button class="pointer" id="play-again" style="display: none;">Грати знову</button>
-              <button class="pointer" id="exit-room" style="display: block;">Вийти</button>
+              <button class="pointer start" id="start" style="display: none;">Готовність</button>
+              <button class="pointer play-again" id="play-again" style="display: none;">Грати знову</button>
+              <button class="pointer exit-room" id="exit-room" style="display: block;">Вийти</button>
             </div>
             <div class="grid__container enemy-container">
               <div class="grid grid-computer"></div>
@@ -85,10 +89,10 @@
               <div class="ship-score ship-score-1 ship-score-1-user"><div>4</div></div>
             </div>
             <div class="score computer-score">
-              <div class="ship-score ship-score-4 ship-score-4-computer"><div>1</div></div>
-              <div class="ship-score ship-score-3 ship-score-3-computer"><div>2</div></div>
-              <div class="ship-score ship-score-2 ship-score-2-computer"><div>3</div></div>
               <div class="ship-score ship-score-1 ship-score-1-computer"><div>4</div></div>
+              <div class="ship-score ship-score-2 ship-score-2-computer"><div>3</div></div>
+              <div class="ship-score ship-score-3 ship-score-3-computer"><div>2</div></div>
+              <div class="ship-score ship-score-4 ship-score-4-computer"><div>1</div></div>
             </div>
           </div>
           
