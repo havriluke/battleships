@@ -1,35 +1,24 @@
-const express = require('express') // ++/
-const http = require('http') // ++/
-const app = express() // ++/
-const server = http.createServer(app) // ++/
-const path = require('path') // ++/
-const PORT = process.env.PORT || 3000 // ++/
+const express = require('express')
+const http = require('http')
+const app = express()
+const server = http.createServer(app)
+const path = require('path')
+const PORT = process.env.PORT || 3000
 const io = require('socket.io')(server, {
     cors: {
         origin: "http://localhost:8080"
     }
-})// ++/
-// const io = soketio(server) // ++/
+})
 
-app.use(express.static(path.join(__dirname, "client"))) // ++/
+app.use(express.static(path.join(__dirname, "client")))
 
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`)) // ++/
-
-// io.on('connection', socket => {
-//     console.log('new WS connection');
-// })
-
-// const io = require('socket.io')(3000, { // Відкриття сокет порту 3000 // --/
-//     cors: {
-//         origin: ['http://localhost:8080'],
-//     },
-// })  
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`))
 
 // Змінні інформацї про підключення гравців та їх нікнейми
 let connections = {}
 let nicknames = {}
 
-// Установка підключення серверу до клієнта // --/
+// Установка підключення серверу до клієнта
 io.on('connection', socket => {
 
     // функція приєднаня до кімнати
@@ -50,7 +39,7 @@ io.on('connection', socket => {
         }
 
         // Недоступні нікнейми
-        if (nickname.length >= 10 || nickname === '...') {
+        if (!checkNickname(nickname, code)) {
             socket.emit('nick-error');
             return
         }
@@ -61,14 +50,9 @@ io.on('connection', socket => {
             socket.emit('set-nicknames', '...', 0)
         }
         else if (parseInt(playerIndex) === 1) {
-            if (nickname === nicknames[code][0]) {
-                socket.emit('nick-error')
-                return
-            } else {
-                nicknames[code][1] = nickname
-                socket.to(code).emit('set-nicknames', nickname, 0)
-                socket.emit('set-nicknames', nicknames[code][0], 1)
-            }
+            nicknames[code][1] = nickname
+            socket.to(code).emit('set-nicknames', nickname, 0)
+            socket.emit('set-nicknames', nicknames[code][0], 1)
         }
 
         // Приєднання до кімнати за кодом кімнати
@@ -93,10 +77,13 @@ io.on('connection', socket => {
             console.log(`Player ${playerIndex} disconnected`)
             // Якщо відключенний гравець - хост, то примусово відключити другого гравця
             if (parseInt(playerIndex) === 0) {
+                delete connections[code]
+                delete nicknames[code]
                 socket.to(code).emit('hard-disconnect')
             // Якщо відключенний гравець - гість, то примусово перезапустити гру хосту
             } else {
-                connections[code][playerIndex] = null
+                connections[code][1] = null
+                nicknames[code][1] = null
                 socket.to(code).emit('hard-replay')
                 socket.to(code).emit('set-nicknames', '...', 0)
                 // Надсилання інформації про те, що гравець відключився
@@ -114,14 +101,13 @@ io.on('connection', socket => {
         socket.on('check-players', () => {
             const players = []
             for (const i in connections[code]) {
-            connections[code][i] === null ? players.push({connected: false, ready: false}) : players.push({connected: true, ready: connections[i]})
+                connections[code][i] === null ? players.push({connected: false, ready: false}) : players.push({connected: true, ready: connections[i]})
             }
             socket.emit('check-players', players)
         })
 
         // Обробка пострілу
         socket.on('fire', id => {
-            console.log(`Shot fired from ${playerIndex}`, id)
             // Еміт ходу іншому гравцеві
             socket.to(code).emit('fire', id)
         })
@@ -143,7 +129,15 @@ io.on('connection', socket => {
         socket.on('timer-out', () => {
             io.to(code).emit('timer-out')
         })
+
+        // Обробка надсилання дошки
+        socket.on('send-board', (ids) => {
+            socket.to(code).emit('send-board', ids)
+        })
     }
+
+    // Обробка кількості гравців
+    io.emit('cpc', io.engine.clientsCount)
 
     // Створення кімнати
     socket.on('create-room', (nickname) => {
@@ -163,6 +157,7 @@ io.on('connection', socket => {
 
 })
 
+
 // Функція генерації коду
 function makeid(length) {
     var result           = '';
@@ -171,6 +166,17 @@ function makeid(length) {
     for ( var i = 0; i < length; i++ ) {
        result += characters.charAt(Math.floor(Math.random() * charactersLength));
     }
+    if (result in connections) return makeid(length)
     return result;
+}
+
+// Функція перевірки легітимності нікнейму
+function checkNickname(currentNickname, code) {
+    let isLegit = true
+    let regExsp =  /^[A-Za-z]([A-Za-z0-9]+)$/g
+    isLegit =  currentNickname.match(regExsp) ? isLegit : false
+    isLegit = currentNickname.length >= 10 ? false : isLegit
+    isLegit = currentNickname === nicknames[code][0] ? false : isLegit
+    return isLegit
 }
 

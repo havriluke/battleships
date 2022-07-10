@@ -32,6 +32,8 @@ let isGameOver = false
 let gameBegin = false
 let currentPlayer = 'user'
 const width = 10
+let totalEnemyDamage = 0
+let totalUserDamage = 0
 let playerNum = 0
 let ready = false
 let enemyReady = false
@@ -40,7 +42,7 @@ let shotFired = -1
 let enemyNickname
 let isShotAnimation = false
 
-// Підключення до серверу за посиланням
+// Підключення до серверу
 const socket = io()
 
 // Моніторинг зміни розміру екрана
@@ -85,6 +87,23 @@ function copyCode() {
     }, 10000);
 }
 
+// Зміна дошки в кінці гри (mobile)
+let countClickOnBoard = 0
+userGrid.addEventListener('click', changeGridGameOver)
+computerGrid.addEventListener('click', changeGridGameOver)
+function changeGridGameOver() {
+    if (!isGameOver || wdWidth > 900) return
+    let isWin = totalEnemyDamage == 100
+    countClickOnBoard++
+    if (isWin) changeGrid(countClickOnBoard % 2 === 0)
+    else changeGrid(countClickOnBoard % 2 !== 0)
+}
+
+// Обробка кількості гравців онлайн
+socket.on('cpc', (onlineNow) => {
+    document.querySelector('.online-now').querySelector('span').innerHTML = onlineNow
+})
+
 // Запуск гри
 socket.on('init', code => {
     gameCode.innerHTML = code
@@ -108,6 +127,16 @@ socket.on('set-timer', (num) => {
 })
 socket.on('timer-out', () => {
     timerOut()
+})
+
+// Показ ворожих кораблів після гри
+socket.on('send-board', (ids) => {
+    ids.forEach(i => {
+        computerGrid.querySelector(`div[data-id='${i}']`).classList.add('taken')
+    })
+    computerGrid.querySelectorAll(`div`).forEach(s => {
+        if (s.classList.contains('boom') && !s.classList.contains('destroyed')) s.classList.add('taken')
+    })
 })
 
 // Функція запуску гри
@@ -140,7 +169,6 @@ function startMultiPlayer() {
 
     // Інший гравець зайшов/вийшов. Обробка
     socket.on('player-connection', num => {
-        console.log(`Player number ${num} has connected or disconnected`)
         playerConnectedOrDisconnected(num)
     })
 
@@ -169,6 +197,9 @@ function startMultiPlayer() {
             if (enemyNickname !== '...') {
                 await setPause(0.1)
                 startButton.style.display = 'none'
+                socket.emit('player-ready')
+                ready = true
+                playerReady(playerNum)
                 playGameMulti(socket)
             }
             else fillInfoDisplay(`Зачекайте суперника`)
@@ -261,6 +292,7 @@ async function handleShot(e) {
         square.classList.remove('checked')
         // Надсилання серверу id клітинки пострілу
         socket.emit('fire', shotFired)
+        await setPause(0.5)
         isShotAnimation = false
     }
 }
@@ -413,7 +445,7 @@ function cancelDragShip(e) {
     let doCancel = true
     touchedElements.slice(0, -2).forEach(touchElem => {
         if (touchElem === draggedShip || touchElem.classList.contains('grid-user') || lastDragId === undefined ||
-            touchElem.classList.contains('set-ship') || touchElem.classList.contains('rotate')) doCancel = false
+            touchElem.classList.contains('set-ship') || touchElem.classList.contains('rotate') || !gameBegin) doCancel = false
     })
     if (doCancel) {
         draggedShip.classList.remove('dragged')
@@ -442,7 +474,7 @@ function setDraggedShip(e) {
 async function setShip() {
     await setPause(0.1)
     dragDrop()
-    if (allShipsPlaced !== true) {
+    if (!allShipsPlaced) {
         rotateButton.style.display = 'block'
         setShipButton.style.display = 'none'
     } else setShipButton.style.display = 'none'
@@ -453,21 +485,18 @@ async function setShip() {
 
 
 // Логіка гри
-function playGameMulti(socket) {
+async function playGameMulti(socket) {
     if (isGameOver) return
-    if(!ready) {
-        socket.emit('player-ready')
-        ready = true
-        playerReady(playerNum)
-    }
     // Гру розпочато
     if (ready && enemyReady) {
         gameBegin = true
+        rotateButton.style.display = 'none'
         exitButton.style.display = 'none'
         turnDisplay.style.display ='block'
         displayGrid.style.display = 'none'
         document.querySelector('.scores').style.display = 'flex'
         timerElement.style.display = 'flex'
+        await setPause(0.25)
         if (wdWidth <= 900) changeGrid(currentPlayer === 'user')
         // Установка ходу
         if(currentPlayer === 'user') {
@@ -480,7 +509,6 @@ function playGameMulti(socket) {
         if (playerNum === 0) {
             setTimer(10)
         }
-        // socket.emit('start-timer')
     }
 }
 
@@ -660,9 +688,9 @@ function checkForWins(id) {
         document.querySelector('.ship-score-4-user div').innerHTML = --score
     }
 
-    let totalEnemyDamage = singleDeck1Count+singleDeck2Count+singleDeck3Count+singleDeck4Count
+    totalEnemyDamage = singleDeck1Count+singleDeck2Count+singleDeck3Count+singleDeck4Count
         +doubleDeck1Count+doubleDeck2Count+doubleDeck3Count+threeDeck1Count+threeDeck2Count+fourDeck1Count;
-    let totalUserDamage = uSingleDeck1Count+uSingleDeck2Count+uSingleDeck3Count+uSingleDeck4Count
+    totalUserDamage = uSingleDeck1Count+uSingleDeck2Count+uSingleDeck3Count+uSingleDeck4Count
         +uDoubleDeck1Count+uDoubleDeck2Count+uDoubleDeck3Count+uThreeDeck1Count+uThreeDeck2Count+uFourDeck1Count;
     
     if (totalEnemyDamage === 100) {
@@ -682,6 +710,10 @@ function gameOver() {
     exitButton.style.display = 'block'
     clearInterval(currentInterval)
     timerElement.style.display = 'none'
+    // Надсилання "живих" кораблів
+    let sendBoardIds = []
+    sendBoardIds = [].slice.call(userGrid.children).filter(s => s.classList.contains('taken') && !s.classList.contains('boom'))
+    socket.emit('send-board', sendBoardIds.map(s => s.dataset.id))
 }
 
 // Функція установки недоступних клітинок після встановлення корабля
@@ -758,6 +790,9 @@ function replay() {
     enemyReady = false
     allShipsPlaced = false
     isShotAnimation = false
+    countClickOnBoard = 0
+    totalEnemyDamage = 0
+    totalUserDamage = 0
     shotFired = -1
     busyIds = []
     boomedShipsIds = []
@@ -772,6 +807,7 @@ function replay() {
     turnDisplay.style.display = 'none'
     displayGrid.style.display = 'flex'
     exitButton.style.display = 'block'
+    clearInterval(currentInterval)
     timerElement.style.display = 'none'
     document.querySelector('.scores').style.display = 'none'
     refillScore()
