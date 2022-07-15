@@ -83,8 +83,19 @@ input:focus {
   flex-direction: column;
   align-items: center;
 }
-.room-buttons div:not(:last-child) {
+.room-buttons > div:not(:last-child) {
   margin: 0 0 15px 0;
+}
+.room-buttons > div:last-child {
+  margin: 15px 0 0 0;
+}
+.room-button {
+  min-width: 185px;
+}
+.room-buttons__group {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
 }
 
 .or-label {
@@ -715,6 +726,16 @@ button:hover {
   }
   input {
     width: 130px;
+  }
+  .room-button {
+    min-width: 150px;
+  }
+  .room-buttons__group {
+    flex-direction: column;
+    align-items: center;
+  }
+  .create-room {
+    margin-bottom: 10px;
   }
 }
 

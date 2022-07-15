@@ -20,14 +20,22 @@
         <div class="online-now">Зараз онлайн: <span></span></div>
         <input type="text" placeholder="Нікнейм" id="nickname">
         <div class="room-buttons">
-          <div class="create-room">
-            <button type="submit" class="room-button" id="create-room">Створити кімнату</button>
+          <div class="room-buttons__group">
+            <div class="create-room">
+              <button type="submit" class="room-button" id="create-room">Створити кімнату</button>
+            </div>
+            <div class="random-room">
+              <button type="submit" class="room-button" id="random-room">Випадковий бій</button>
+            </div>
           </div>
-          <div class="or-label">АБО</div>
           <div class="join-room">
             <input type="text" placeholder="Код кімнати" id="join-room-code-input"/>
             <button type="submit" class="room-button" id="join-room">Приєднатися</button>
           </div>
+          <div class="play-offline">
+            <button type="submit" class="room-button" id="play-offline">Грати оффлайн</button>
+          </div>
+          
         </div>
         <div class="error-label"></div>
       </div>
@@ -65,10 +73,9 @@
             </div>
             <div class="board-buttons">
               <div class="pointer turn" id="turn" style="display: none;"></div>
-              <div class="timer" id="timer" style="display: none;"><span class="timer-number">0</span></div>
+              <div class="timer" id="timer" style="display: none;"><span class="timer-number"></span></div>
               <button class="pointer rotate" id="rotate" style="display: block;">Обернути</button>
               <button class="pointer set-ship" id="set-ship" style="display: none;">Поставити</button>
-              <!-- ⭯ -->
               <button class="pointer start" id="start" style="display: none;">Готовність</button>
               <button class="pointer play-again" id="play-again" style="display: none;">Грати знову</button>
               <button class="pointer exit-room" id="exit-room" style="display: block;">Вийти</button>

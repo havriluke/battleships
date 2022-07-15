@@ -17,6 +17,7 @@ server.listen(PORT, () => console.log(`Server running on port ${PORT}`))
 // Змінні інформацї про підключення гравців та їх нікнейми
 let connections = {}
 let nicknames = {}
+let types = {}
 
 // Установка підключення серверу до клієнта
 io.on('connection', socket => {
@@ -69,9 +70,6 @@ io.on('connection', socket => {
         // Установка з'єднань
         connections[code][playerIndex] = false
 
-        // Надсилання інформації про те, що гравець підключився
-        socket.to(code).emit('player-connection', playerIndex)
-
         // Обробка відключення гравця
         socket.on('disconnect', () => {
             console.log(`Player ${playerIndex} disconnected`)
@@ -79,15 +77,15 @@ io.on('connection', socket => {
             if (parseInt(playerIndex) === 0) {
                 delete connections[code]
                 delete nicknames[code]
+                delete types[code]
                 socket.to(code).emit('hard-disconnect')
             // Якщо відключенний гравець - гість, то примусово перезапустити гру хосту
             } else {
+                if (!connections[code]) return
                 connections[code][1] = null
                 nicknames[code][1] = null
                 socket.to(code).emit('hard-replay')
                 socket.to(code).emit('set-nicknames', '...', 0)
-                // Надсилання інформації про те, що гравець відключився
-                socket.to(code).emit('player-connection', playerIndex)
             }
         })
 
@@ -146,6 +144,7 @@ io.on('connection', socket => {
         // Скидання підключення та нікнеймів
         connections[code] = [null, null]
         nicknames[code] = [null, null]
+        types[code] = 'private'
         // Приєднання до кімнати
         joinRoom(code, nickname.toLowerCase())
     })
@@ -153,6 +152,35 @@ io.on('connection', socket => {
     // Приєднання до існуючої кімнати
     socket.on('join-room', (code, nickname) => {
         joinRoom(code, nickname.toLowerCase())
+    })
+
+    // Приєднання до випадкової кімнати
+    socket.on('random-room', (nickname) => {
+        let roomCode = null
+        Object.entries(types).forEach(room => {
+            if (room[1] === 'public') {
+                let playersInRoom = nicknames[room[0]]
+                if (!playersInRoom[1]) roomCode = room[0]
+            }
+        })
+        if (roomCode) {
+            joinRoom(roomCode, nickname.toLowerCase())
+        } else {
+            roomCode = makeid(8)
+            connections[roomCode] = [null, null]
+            nicknames[roomCode] = [null, null]
+            types[roomCode] = 'public'
+            joinRoom(roomCode, nickname.toLowerCase())
+        }
+    })
+
+    // Запуск гри оффлайн
+    socket.on('play-offline', (nickname) => {
+        if (checkNickname(nickname, null)) socket.emit('offline-game')
+        else {
+            socket.emit('nick-error');
+            return
+        }
     })
 
 })
@@ -174,9 +202,10 @@ function makeid(length) {
 function checkNickname(currentNickname, code) {
     let isLegit = true
     let regExsp =  /^[A-Za-z]([A-Za-z0-9]+)$/g
+    isLegit = currentNickname === 'bot' ? false : isLegit
     isLegit =  currentNickname.match(regExsp) ? isLegit : false
     isLegit = currentNickname.length >= 10 ? false : isLegit
-    isLegit = currentNickname === nicknames[code][0] ? false : isLegit
+    if (code) isLegit = currentNickname === nicknames[code][0] ? false : isLegit
     return isLegit
 }
 

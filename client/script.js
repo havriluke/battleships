@@ -19,6 +19,8 @@ const nicknameInput = document.getElementById('nickname')
 const joinRoomInput = document.getElementById('join-room-code-input')
 const createRoomButton = document.getElementById('create-room')
 const joinRoomButton = document.getElementById('join-room')
+const randomRoom = document.getElementById('random-room')
+const playOffline = document.getElementById('play-offline')
 const errorLabel = document.querySelector('.error-label')
 const gameCode = document.querySelector('.game-code')
 const timerElement = document.querySelector('.timer')
@@ -31,6 +33,7 @@ let isHorizontal = true
 let isGameOver = false
 let gameBegin = false
 let currentPlayer = 'user'
+let gameMode = 'multiplayer'
 const width = 10
 let totalEnemyDamage = 0
 let totalUserDamage = 0
@@ -76,6 +79,28 @@ function clickJoin() {
     setWdSize()
 }
 
+// Обробка натискання кнопки "Випадковий бій"
+randomRoom.addEventListener('click', clickRandom)
+function clickRandom() {
+    if (nicknameInput.value === ''){
+        errorLabel.innerHTML = `Введіть спочатку нікнейм`
+        return
+    }
+    socket.emit('random-room', nicknameInput.value)
+    setWdSize()
+}
+
+// Обробка натискання кнопки "Грати оффлайн"
+playOffline.addEventListener('click', clickOffline)
+function clickOffline() {
+    if (nicknameInput.value === ''){
+        errorLabel.innerHTML = `Введіть спочатку нікнейм`
+        return
+    }
+    socket.emit('play-offline', nicknameInput.value)
+    setWdSize()
+}
+
 // Обробка копіювання коду кімнати
 gameCode.addEventListener('click', copyCode)
 document.querySelector('.copy-symb').addEventListener('click', copyCode)
@@ -104,13 +129,28 @@ socket.on('cpc', (onlineNow) => {
     document.querySelector('.online-now').querySelector('span').innerHTML = onlineNow
 })
 
+// Обробка запуску гри оффлайн
+socket.on('offline-game', () => {
+    gameMode = 'singleplayer'
+    setNickname('bot', 0)
+    startSinglePlayer()
+    timerCount = 2
+    init(null)
+})
+
 // Запуск гри
 socket.on('init', code => {
-    gameCode.innerHTML = code
+    gameMode = 'multiplayer'
+    startMultiPlayer()
+    init(code)
+})
+
+function init(code) {
+    if (code) gameCode.innerHTML = code
     menu.style.display = 'none'
     game.style.display = 'flex'
     startGame()
-})
+}
 
 // Повідомлення про помилку заповненості кімнати
 socket.on('full-error', () => {
@@ -131,13 +171,29 @@ socket.on('timer-out', () => {
 
 // Показ ворожих кораблів після гри
 socket.on('send-board', (ids) => {
+    showEnemyBoard(ids)
+})
+function showEnemyBoard(ids) {
     ids.forEach(i => {
         computerGrid.querySelector(`div[data-id='${i}']`).classList.add('taken')
     })
     computerGrid.querySelectorAll(`div`).forEach(s => {
         if (s.classList.contains('boom') && !s.classList.contains('destroyed')) s.classList.add('taken')
     })
+}
+
+// Установка нікнеймів
+socket.on('set-nicknames', (enemyNn, num) => {
+    setNickname(enemyNn, num)
 })
+function setNickname(enemyNn, num) {
+    enemyNickname = enemyNn
+    document.querySelector(`.p${num === 0 ? 2 : 1}-name`).innerHTML = enemyNickname
+    document.querySelector(`.p${num === 0 ? 1 : 2}-name`).innerHTML = nicknameInput.value.toLowerCase()
+    document.querySelector(`.p${num === 0 ? 1 : 2}`).classList.add('you')
+    document.querySelector(`.p${num === 0 ? 2 : 1}`).classList.add('enemy')
+    document.querySelector(`.p${parseInt(num) + 1}`).style.fontWeight = 'bold'
+}
 
 // Функція запуску гри
 function startGame() {
@@ -147,17 +203,67 @@ function startGame() {
     squaresSetup()
 }
 
-startMultiPlayer()
+// Запуск сінглплеєру
+let shipsComputer = {}
+let notAllowedShotComputer = []
+let injureShotsComputer = []
+async function userShot(id) {
+    let target = id in shipsComputer ? shipsComputer[id] : document.createElement('div')
+    revealSquare(target.classList)
+    playGameSingle()
+}
+async function computerShot() {
+    await setPause(Math.random() * 2 + 1)
+    let recommendedChoises = [...Array(Math.pow(width, 2)).keys()]
+    if (injureShotsComputer.length) {
+        if (injureShotsComputer.length === 1) {
+            recommendedChoises = [injureShotsComputer[0]-1, injureShotsComputer[0]+1,
+                                  injureShotsComputer[0]+width, injureShotsComputer[0]-width]
+            if (injureShotsComputer[0] % width === 9) recommendedChoises = recommendedChoises.filter(s => s % width !== 0)
+            else if (injureShotsComputer[0] % width === 0) recommendedChoises = recommendedChoises.filter(s => s % width !== 9)
+        }
+        else {
+            if (Math.abs(injureShotsComputer[0]-injureShotsComputer[1]) === 1) recommendedChoises = [Math.min(...injureShotsComputer)-1, Math.max(...injureShotsComputer)+1]
+            else if (Math.abs(injureShotsComputer[0]-injureShotsComputer[1]) === width) recommendedChoises = [Math.min(...injureShotsComputer)-width, Math.max(...injureShotsComputer)+width]
+        }
+    }
+    recommendedChoises = recommendedChoises.filter(s => !notAllowedShotComputer.includes(s) && s >= 0 && s < 100)
+    let choosenSquare = recommendedChoises[Math.floor(Math.random()*recommendedChoises.length)]
+    notAllowedShotComputer.push(choosenSquare)
+    enemyGo(choosenSquare)
+    playGameSingle()
+}
+function startSinglePlayer() {
+    document.querySelector('.game-code-cont').style.display = 'none'
+
+    // Обробка натискання кнопки "Готовність"
+    startButton.addEventListener('click', clickStartSimpleplayer)
+    async function clickStartSimpleplayer() {
+        if(allShipsPlaced) {
+            await setPause(0.1)
+            startButton.style.display = 'none'
+            ready = true
+            playerReady(0)
+            shipsComputer = shipsAutoSet()
+            playerReady(1)
+            enemyReady = true
+            playGameSingle()
+            console.log(shipsComputer);
+        } else fillInfoDisplay(`Спочатку розстав усі кораблі`)
+    }
+    replayButton.addEventListener('click', clickReplaySimpleplayer)
+    async function clickReplaySimpleplayer() {
+        await setPause(0.1)
+        if (!isGameOver) return
+        replayButton.disabled = true
+        replayButton.classList.add('button-disabled')
+        replay()
+    }
+}
+
 // Запуск мультиплеєру
 function startMultiPlayer() {
-    // Установка нікнеймів
-    socket.on('set-nicknames', (enemyNn, num) => {
-        enemyNickname = enemyNn
-        document.querySelector(`.p${num === 0 ? 2 : 1}-name`).innerHTML = enemyNickname
-        document.querySelector(`.p${num === 0 ? 1 : 2}-name`).innerHTML = nicknameInput.value.toLowerCase()
-        document.querySelector(`.p${num === 0 ? 1 : 2}`).classList.add('you')
-        document.querySelector(`.p${num === 0 ? 2 : 1}`).classList.add('enemy')
-    })
+    document.querySelector('.game-code-cont').style.display = 'flex'
 
     // Отримання номеру поточного гравця
     socket.on('player-number', num => {
@@ -167,22 +273,16 @@ function startMultiPlayer() {
         socket.emit('check-players')
     })
 
-    // Інший гравець зайшов/вийшов. Обробка
-    socket.on('player-connection', num => {
-        playerConnectedOrDisconnected(num)
-    })
-
     // Ворог розставив кораблі
     socket.on('enemy-ready', num => {
         enemyReady = true
         playerReady(num)
-        if (ready) playGameMulti(socket)
+        if (ready) playGameMulti()
     })
 
     // Перевірка статусу гравців
     socket.on('check-players', players => {
         players.forEach((p, i) => {
-            if(p.connected) playerConnectedOrDisconnected(i)
             if(p.ready) {
                 playerReady(i)
                 if(i !== playerReady) enemyReady = true
@@ -200,11 +300,9 @@ function startMultiPlayer() {
                 socket.emit('player-ready')
                 ready = true
                 playerReady(playerNum)
-                playGameMulti(socket)
-            }
-            else fillInfoDisplay(`Зачекайте суперника`)
-        }
-        else fillInfoDisplay(`Спочатку розстав усі кораблі`)
+                playGameMulti()
+            } else fillInfoDisplay(`Зачекайте суперника`)
+        } else fillInfoDisplay(`Спочатку розстав усі кораблі`)
     }
 
     // Обробка натискання кнопки "Грати знову"
@@ -216,12 +314,6 @@ function startMultiPlayer() {
         replayButton.classList.add('button-disabled')
         // Еміт грати знову
         socket.emit('replay', playerNum)
-    }
-
-    // Обробка натискання кнопки "Вийти"
-    exitButton.addEventListener('click', clickExit)
-    function clickExit() {
-        document.location.reload()
     }
 
     // Перезапуск гри після того як обидва учасники натиснули "Грати знову"
@@ -238,28 +330,26 @@ function startMultiPlayer() {
     socket.on('hard-replay', () => { replay() })
     socket.on('hard-disconnect', () => { document.location.reload() })
 
-
     // Обробка ворожого пострілу
     socket.on('fire', id => {
         enemyGo(id)
         const square = userSquares[id]
         // Надсилання інформації серверу про клітику, в яку поцілив ворог
         socket.emit('fire-reply', square.classList)
-        playGameMulti(socket)
+        playGameMulti()
     })
 
     // Обробка пострілу
     socket.on('fire-reply', classList => {
         revealSquare(classList)
-        playGameMulti(socket)
+        playGameMulti()
     })
+}
 
-    // Функція обробки входу/виходу гравця
-    function playerConnectedOrDisconnected(num) {
-        let player = `.p${parseInt(num) + 1}`
-        document.querySelector(`${player} .connected`).classList.toggle('green')
-        if(parseInt(num) === playerNum) document.querySelector(player).style.fontWeight = 'bold'
-    }
+// Обробка натискання кнопки "Вийти"
+exitButton.addEventListener('click', clickExit)
+function clickExit() {
+    document.location.reload()
 }
 
 function squaresSetup() {
@@ -291,7 +381,8 @@ async function handleShot(e) {
         await waitForAnimation(square)
         square.classList.remove('checked')
         // Надсилання серверу id клітинки пострілу
-        socket.emit('fire', shotFired)
+        if (gameMode === 'multiplayer') socket.emit('fire', shotFired)
+        else userShot(shotFired)
         await setPause(0.5)
         isShotAnimation = false
     }
@@ -383,7 +474,7 @@ function dragOver(e) {
         } else lastDragId = undefined
     } else allowedIds = []
 }
-// Обробка кінця перетягування, установка рорабля на сітку
+// Обробка кінця перетягування, установка корабля на сітку
 function dragDrop() {
     userSquares.forEach(us => us.classList.remove('draged-over'))
     let shipNameWithLastId
@@ -399,12 +490,12 @@ function dragDrop() {
     if (isHorizontal && shipLastId !== undefined) {
         for (let i=0; i < draggedShipLength; i++) {
             userSquares[shipLastId+i].classList.add('taken', shipClass, shipName)
-            fillBusy(shipLastId+i)
+            busyIds = fillBusy(shipLastId+i, busyIds)
         }
     } else if (!isHorizontal && shipLastId !== undefined) {
         for (let i=0; i < draggedShipLength; i++) {
             userSquares[shipLastId + width*i].classList.add('taken', shipClass, shipName)
-            fillBusy(shipLastId+width*i)
+            busyIds = fillBusy(shipLastId+width*i, busyIds)
         }
     } else return
 
@@ -483,32 +574,77 @@ async function setShip() {
     lastDragId = undefined
 }
 
+function shipsAutoSet() {
+    let busyIdsComputer = []
+    let shipsIdComputerElements = {}
+    for (let i=4; i>0; i--) {
+        for (let j=0; j<5-i; j++) {
+            let isLegalPosition
+            let filledIds
+            let shipNames = [`${['single', 'double', 'three', 'four'][i-1]}-deck-${j+1}`, `${['single', 'double', 'three', 'four'][i-1]}`]
+            do {
+                filledIds = []
+                isLegalPosition = true
+                let isHorizontalComputer = Math.floor(Math.random()*2) == 0
+                let firstId = Math.floor(Math.random()*Math.pow(width, 2))
+                if (isHorizontalComputer) {
+                    for (let k=0; k<i; k++) filledIds.push(firstId+k)
+                    isLegalPosition = filledIds[0]%width <= filledIds[filledIds.length-1]%width  ? isLegalPosition : false
+                } else {
+                    for (let k=0; k<i; k++) filledIds.push(firstId+k*width)
+                    isLegalPosition = filledIds[filledIds.length-1] < 100 ? isLegalPosition : false
+                }
+                isLegalPosition = filledIds.filter(s => busyIdsComputer.includes(s)).length > 0 ? false : isLegalPosition
+            } while (!isLegalPosition)
+            filledIds.forEach(id => {
+                busyIdsComputer = fillBusy(id, busyIdsComputer)
+                let shipsIdComputerElement = document.createElement('div')
+                shipsIdComputerElement.classList.add(shipNames[0], shipNames[1], 'taken')
+                shipsIdComputerElements[id] = shipsIdComputerElement
+            })
+        }
+    }
+    return shipsIdComputerElements
+}
 
-// Логіка гри
-async function playGameMulti(socket) {
+// Логіка гри (сінглплеєр)
+async function playGameSingle() {
+    if (isGameOver) return
+    if (ready && enemyReady) {
+        beginGame()
+        if (currentPlayer === 'enemy') computerShot()
+    }
+}
+
+// Логіка гри (мультиплеєр)
+function playGameMulti() {
     if (isGameOver) return
     // Гру розпочато
     if (ready && enemyReady) {
-        gameBegin = true
-        rotateButton.style.display = 'none'
-        exitButton.style.display = 'none'
-        turnDisplay.style.display ='block'
-        displayGrid.style.display = 'none'
-        document.querySelector('.scores').style.display = 'flex'
         timerElement.style.display = 'flex'
-        await setPause(0.25)
-        if (wdWidth <= 900) changeGrid(currentPlayer === 'user')
-        // Установка ходу
-        if(currentPlayer === 'user') {
-            turnDisplay.innerHTML = 'Ваш хід'
-        }
-        if(currentPlayer === 'enemy') {
-            turnDisplay.innerHTML = `Хід суперника`
-        }
+        beginGame()
         // Запуск таймеру хостом
         if (playerNum === 0) {
             setTimer(10)
         }
+    }
+}
+
+async function beginGame () {
+    gameBegin = true
+    rotateButton.style.display = 'none'
+    exitButton.style.display = 'none'
+    turnDisplay.style.display ='block'
+    displayGrid.style.display = 'none'
+    document.querySelector('.scores').style.display = 'flex'
+    await setPause(0.25)
+    if (wdWidth <= 900) changeGrid(currentPlayer === 'user')
+    // Установка ходу
+    if(currentPlayer === 'user') {
+        turnDisplay.innerHTML = 'Ваш хід'
+    }
+    if(currentPlayer === 'enemy') {
+        turnDisplay.innerHTML = `Хід суперника`
     }
 }
 
@@ -602,6 +738,7 @@ function enemyGo(square) {
     if (!userSquares[square].classList.contains('miss') && !userSquares[square].classList.contains('boom')) {
         if (userSquares[square].classList.contains('taken')) {
             userSquares[square].classList.add('boom')
+            injureShotsComputer.push(square)
             if (userSquares[square].classList.contains('single-deck-1')) uSingleDeck1Count++
             if (userSquares[square].classList.contains('single-deck-2')) uSingleDeck2Count++
             if (userSquares[square].classList.contains('single-deck-3')) uSingleDeck3Count++
@@ -659,6 +796,8 @@ function checkForWins(id) {
     }
     if (uSingleDeck1Count === 1 || uSingleDeck2Count === 1 || uSingleDeck3Count === 1 || uSingleDeck4Count === 1) {
         fillInfoDisplay(`${enemy} потопив ваш однопалубний корабель`)
+        injureShotsComputer = []
+        fillBusy(id, notAllowedShotComputer)
         if (uSingleDeck1Count === 1) uSingleDeck1Count = 10
         if (uSingleDeck2Count === 1) uSingleDeck2Count = 10
         if (uSingleDeck3Count === 1) uSingleDeck3Count = 10
@@ -668,6 +807,8 @@ function checkForWins(id) {
     }
     if (uDoubleDeck1Count === 2 || uDoubleDeck2Count === 2 || uDoubleDeck3Count === 2) {
         fillInfoDisplay(`${enemy} потопив ваш двопалубний корабель`)
+        injureShotsComputer = []
+        fillBusy(id, notAllowedShotComputer)
         if (uDoubleDeck1Count === 2) uDoubleDeck1Count = 10
         if (uDoubleDeck2Count === 2) uDoubleDeck2Count = 10
         if (uDoubleDeck3Count === 2) uDoubleDeck3Count = 10
@@ -676,6 +817,8 @@ function checkForWins(id) {
     }
     if (uThreeDeck1Count === 3 || uThreeDeck2Count === 3) {
         fillInfoDisplay(`${enemy} потопив ваш трипалубний корабель`)
+        injureShotsComputer = []
+        fillBusy(id, notAllowedShotComputer)
         if (uThreeDeck1Count === 3) uThreeDeck1Count = 10
         if (uThreeDeck2Count === 3) uThreeDeck2Count = 10
         let score = document.querySelector('.ship-score-3-user div').textContent
@@ -683,6 +826,8 @@ function checkForWins(id) {
     }
     if (uFourDeck1Count === 4) {
         fillInfoDisplay(`${enemy} потопив ваш чотирипалубний корабель`)
+        injureShotsComputer = []
+        fillBusy(id, notAllowedShotComputer)
         uFourDeck1Count = 10;
         let score = document.querySelector('.ship-score-4-user div').textContent
         document.querySelector('.ship-score-4-user div').innerHTML = --score
@@ -713,26 +858,28 @@ function gameOver() {
     // Надсилання "живих" кораблів
     let sendBoardIds = []
     sendBoardIds = [].slice.call(userGrid.children).filter(s => s.classList.contains('taken') && !s.classList.contains('boom'))
-    socket.emit('send-board', sendBoardIds.map(s => s.dataset.id))
+    if (gameMode === 'multiplayer') socket.emit('send-board', sendBoardIds.map(s => s.dataset.id))
+    else showEnemyBoard(Object.keys(shipsComputer))
 }
 
 // Функція установки недоступних клітинок після встановлення корабля
-function fillBusy(busyId) {
-    busyIds.push(busyId)
-    busyIds.push(busyId+width)
-    busyIds.push(busyId-width)
+function fillBusy(busyId, busyIds_) {
+    busyIds_.push(busyId)
+    busyIds_.push(busyId+width)
+    busyIds_.push(busyId-width)
     if (busyId%width < (busyId+1)%width) {
-        busyIds.push(busyId+1)
-        busyIds.push(busyId+1+width)
-        busyIds.push(busyId+1-width)
+        busyIds_.push(busyId+1)
+        busyIds_.push(busyId+1+width)
+        busyIds_.push(busyId+1-width)
     }
     if (busyId%width > (busyId-1)%width && busyId !== 0) {
-        busyIds.push(busyId-1)
-        busyIds.push(busyId-1+width)
-        busyIds.push(busyId-1-width)
+        busyIds_.push(busyId-1)
+        busyIds_.push(busyId-1+width)
+        busyIds_.push(busyId-1-width)
     }
-    busyIds.filter(b => 0 <= b <= 99)
-    busyIds = [...new Set(busyIds)]
+    busyIds_ = busyIds_.filter(b => 0 <= b && b <= 99)
+    busyIds_ = [...new Set(busyIds_)]
+    return busyIds_
 }
 
 // Функція створення html-елементів кораблів
@@ -796,6 +943,10 @@ function replay() {
     shotFired = -1
     busyIds = []
     boomedShipsIds = []
+    shipsComputer = {}
+    notAllowedShotComputer = []
+    injureShotsComputer = []
+    timerCount = gameMode === 'multiplayer' ? 0 : 2
 
     infoDisplay.innerHTML = `Розставте кораблі`
     turnDisplay.innerHTML = ``
