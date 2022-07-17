@@ -4,39 +4,59 @@
   <meta charset="UTF-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Морський Бій</title>
+  <title>Buttleships</title>
+  <link rel="shortcut icon" type="image/png" href="img/anchor-flat-icons-96.png" />
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://unpkg.com/swiper@8/swiper-bundle.min.css"/>
   <script src="/socket.io/socket.io.js"></script>
   <script src="script.js" charset="utf-8" type="module"></script>
+  <script src="game_mode_swiper.js" charset="utf-8" type="module"></script>
 </head>
 
 <body>
 
   <div class="menu" style="display: block;">
+    <div class="language-block">
+      <div class="language-list">
+        <div id="en" class="language-element en">en</div>
+        <div id="ua" class="language-element ua">ua</div>
+      </div>
+    </div>
+
     <div class="menu__container">
+      
       <div class="title">Морський Бій</div>
 
       <div class="menu__content">
-        <div class="online-now">Зараз онлайн: <span></span></div>
-        <input type="text" placeholder="Нікнейм" id="nickname">
-        <div class="room-buttons">
-          <div class="room-buttons__group">
-            <div class="create-room">
-              <button type="submit" class="room-button" id="create-room">Створити кімнату</button>
+        <div class="online-now"><span class="text">Зараз онлайн: </span><span class="value"></span></div>
+        <input name="nickname" type="text" placeholder="Нікнейм" id="nickname">
+
+        <div class="room-buttons swiper">
+          <div class="room-buttons__group swiper-wrapper">
+            <div class="random-room swiper-slide">
+              <button type="submit" class="room-button random-room-button" id="random-room">Випадкова гра</button>
+              <div class="game-mode-description game-mode-description-public"><span class="bold">Публічна кімната.</span><span class="reg"> Гра з випадковим суперником</span></div>
             </div>
-            <div class="random-room">
-              <button type="submit" class="room-button" id="random-room">Випадковий бій</button>
+            <div class="join-room swiper-slide">
+              <button type="submit" class="room-button create-room-button" id="create-room">Створити кімнату</button>
+              <div class="join-room__group">
+                <input name="join-room-code-input" type="text" placeholder="Код кімнати" id="join-room-code-input"/>
+                <button type="submit" class="room-button join-room-button" id="join-room">Приєднатися</button>
+              </div>
+              <div class="game-mode-description game-mode-description-private"><span class="bold">Приватна кімната.</span><span class="reg"> Вхід у кімнату можливий тільки за допомогою коду кімнати</span></div>
+            </div>
+            <div class="play-offline swiper-slide">
+              <button type="submit" class="room-button play-offline-button" id="play-offline">Грати оффлайн</button>
+              <div class="game-mode-description game-mode-description-single"><span class="bold">Кімната з ботом.</span><span class="reg"> Замість реального суперника вам протистоятиме бот</span></div>
             </div>
           </div>
-          <div class="join-room">
-            <input type="text" placeholder="Код кімнати" id="join-room-code-input"/>
-            <button type="submit" class="room-button" id="join-room">Приєднатися</button>
+          <div class="slider-arrows">
+            <div class="swiper-button-prev"><img src="img/arrow-left-s-line.svg" alt=""></div>
+            <div class="swiper-pagination"></div>
+            <div class="swiper-button-next"><img src="img/arrow-right-s-line.svg" alt=""></div>
           </div>
-          <div class="play-offline">
-            <button type="submit" class="room-button" id="play-offline">Грати оффлайн</button>
-          </div>
-          
         </div>
+
         <div class="error-label"></div>
       </div>
     </div>
@@ -46,9 +66,9 @@
   <div class="game" style="display: none;">
 
     <div class="game__container">
-      <div class="game-code-cont">Код кімнати: <div class="game-code"></div>
-      <img src="img/file-copy-line.svg" alt="" class="copy-symb">
-    </div>
+      <div class="game-code-cont"><span class="text">Код кімнати: </span><div class="game-code"></div>
+        <img src="img/file-copy-line.svg" alt="" class="copy-symb">
+      </div>
 
       <div class="game-content__container">
 
@@ -114,5 +134,6 @@
     
 </div>
 
+<script src="https://unpkg.com/swiper@8/swiper-bundle.min.js"></script>
 </body>
 </html>

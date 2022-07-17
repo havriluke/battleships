@@ -9,7 +9,7 @@
   --pale-blue-color: #BFE0EE;
   --water-color: #86E9E4;
   --cell-size: 30px;
-  --cell-size-port: 30px;
+  --cell-size-port: 25px;
   --board-size: 300px;
 }
 
@@ -23,17 +23,15 @@ body {
   font-family: 'Raleway';
   color: var(--font-color);
   background-image: url(img/bg-pale-fill.png);
-  overflow-x: hidden;
+  /* overflow: hidden; */
   position: relative;
 }
 
 .menu {
-  height: 60vh;
   padding: 0 50px 0 50px;
-  margin: 150px 0 0 0;
+  margin: 130px 0 0 0;
 }
 .menu__container {
-  height: 100%;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -48,14 +46,16 @@ body {
   align-items: center;
   padding: 35px 30px 0 30px;
   border-radius: 30px;
+  /* overflow: hidden; */
 }
 
 .title {
   font-family: 'Montserrat Alternates';
   color: var(--font-color);
   font-size: 80px;
-  padding: 0 0 50px 0;
+  padding: 0 0 30px 0;
   position: relative;
+  text-align: center;
 }
 
 input {
@@ -79,9 +79,7 @@ input:focus {
 }
 
 .room-buttons {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+
 }
 .room-buttons > div:not(:last-child) {
   margin: 0 0 15px 0;
@@ -93,9 +91,9 @@ input:focus {
   min-width: 185px;
 }
 .room-buttons__group {
-  width: 100%;
-  display: flex;
-  justify-content: space-between;
+  /* display: flex;
+  flex-direction: column;
+  align-items: center; */
 }
 
 .or-label {
@@ -276,6 +274,7 @@ button:hover {
 }
 .board-buttons button {
   margin: 10px 20px;
+  z-index: 10;
 }
 #exit-room {
   background-color: var(--red-color);
@@ -468,7 +467,7 @@ button:hover {
   font-size: 18px;
   font-weight: 400;
 }
-.online-now > span {
+.online-now .value {
   font-weight: 600;
 }
 
@@ -512,6 +511,92 @@ button:hover {
   }
 }
 
+.swiper {
+  width: 400px;
+}
+.slider-arrows {
+  margin: 20px 0 0 !important;
+  height: 32px;
+  display: flex;
+  justify-content: center;
+}
+.swiper-button-prev, .swiper-button-next {
+  position: static !important;
+  width: auto !important; height: auto !important;
+  margin-top: 0 !important;
+  top: 0 !important;
+}
+.swiper-button-prev::after, .swiper-button-next::after {
+  display: none;
+}
+.swiper-pagination {
+  position: static !important;
+  width: auto !important;
+  height: 32px !important;
+  display: flex;
+  align-items: center;
+}
+.slider-arrows > div {
+  margin: 0 10px 0;
+}
+.swiper-pagination-bullet-active {
+  background-color: var(--font-color) !important;
+}
+.swiper-slide {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  min-height: 145px !important;
+  width: auto;
+}
+#create-room {
+  margin-bottom: 15px;
+}
+.game-mode-description {
+  margin-top: 20px;
+  font-size: 16px;
+  text-align: center;
+}
+.game-mode-description .bold {
+  font-weight: 600;
+}
+
+.language-block {
+  content: '';
+  position: absolute;
+  top: 25px; right: 25px;
+  width: 36px; height: 36px;
+  background-color: #fff;
+  background-image: url(img/global-line.svg);
+  border-radius: 10px;
+  z-index: 0;
+  border: 3px solid var(--font-color);
+  cursor: pointer;
+}
+.language-list {
+  content: '';
+  position: absolute;
+  transform: translate(-50%, 4%);
+  background-color: #fff;
+  padding: 0 5px;
+  display: flex;
+  opacity: 0;
+  z-index: -1;
+  visibility: hidden;
+  transition: all .3s ease 0s;
+}
+.language-list.active {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-120%, 4%);
+}
+.language-element {
+  padding: 5px 10px;
+}
+.language-element.active {
+  font-weight: bold;
+}
 
 @media (max-width: 1470px) {
   .boards {
@@ -529,9 +614,9 @@ button:hover {
   :root {
     --cell-size-port: 25px;
   }
-  .body {
+  /* .body {
     overflow-y: scroll;
-  }
+  } */
   .boards {
     width: 870px;
   }
@@ -690,7 +775,7 @@ button:hover {
   }
 
   .board-buttons {
-    overflow: hidden;
+    /* overflow: hidden; */
     padding: 0 -100px;
     margin: 20px 0 25px;
   }
@@ -730,12 +815,15 @@ button:hover {
   .room-button {
     min-width: 150px;
   }
-  .room-buttons__group {
+  /* .room-buttons__group {
     flex-direction: column;
     align-items: center;
-  }
+  } */
   .create-room {
     margin-bottom: 10px;
+  }
+  .swiper {
+    width: 295px;
   }
 }
 

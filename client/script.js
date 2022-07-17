@@ -1,6 +1,11 @@
 import { mobileSizing, changeGrid } from './mobile.js'
+import setLanguage from './languages.js'
+import {innerHtmls} from './languages.js'
 
 let ships
+
+const DEFAULT_LANGUAGE = 'en'
+let currentLanguage = localStorage.getItem('language') || DEFAULT_LANGUAGE
 
 // Ініціалізація основних html-елементів
 const menu = document.querySelector('.menu')
@@ -24,6 +29,8 @@ const playOffline = document.getElementById('play-offline')
 const errorLabel = document.querySelector('.error-label')
 const gameCode = document.querySelector('.game-code')
 const timerElement = document.querySelector('.timer')
+const languageBlock = document.querySelector('.language-block')
+const languageElements = document.querySelectorAll('.language-element')
 
 // Ініціалізація ігрових змінних
 let wdWidth
@@ -33,7 +40,7 @@ let isHorizontal = true
 let isGameOver = false
 let gameBegin = false
 let currentPlayer = 'user'
-let gameMode = 'multiplayer'
+let gameMode = 'public'
 const width = 10
 let totalEnemyDamage = 0
 let totalUserDamage = 0
@@ -60,9 +67,10 @@ window.addEventListener('resize', setWdSize)
 createRoomButton.addEventListener('click', clickCreate)
 function clickCreate() {
     if (nicknameInput.value === ''){
-        errorLabel.innerHTML = `Введіть спочатку нікнейм`
+        errorLabel.innerHTML = innerHtmls['errorLabel'][0][currentLanguage]
         return
     }
+    gameMode = 'private'
     // Еміт створення кімнати
     socket.emit('create-room', nicknameInput.value)
     setWdSize()
@@ -71,9 +79,10 @@ function clickCreate() {
 // Обробка натискання кнопки "Приєднатися"
 joinRoomButton.addEventListener('click', clickJoin)
 function clickJoin() {
-    if (nicknameInput.value === '') errorLabel.innerHTML = `Введіть спочатку нікнейм`
-    else if (joinRoomInput.value === '') errorLabel.innerHTML = `Введіть код кімнати`
+    if (nicknameInput.value === '') errorLabel.innerHTML = innerHtmls['errorLabel'][0][currentLanguage]
+    else if (joinRoomInput.value === '') errorLabel.innerHTML = innerHtmls['errorLabel'][1][currentLanguage]
     if (nicknameInput.value === '' || joinRoomInput.value === '') return
+    gameMode = 'private'
     // Еміт приєднання до кімнати
     socket.emit('join-room', joinRoomInput.value, nicknameInput.value)
     setWdSize()
@@ -83,9 +92,10 @@ function clickJoin() {
 randomRoom.addEventListener('click', clickRandom)
 function clickRandom() {
     if (nicknameInput.value === ''){
-        errorLabel.innerHTML = `Введіть спочатку нікнейм`
+        errorLabel.innerHTML = innerHtmls['errorLabel'][0][currentLanguage]
         return
     }
+    gameMode = 'public'
     socket.emit('random-room', nicknameInput.value)
     setWdSize()
 }
@@ -94,12 +104,29 @@ function clickRandom() {
 playOffline.addEventListener('click', clickOffline)
 function clickOffline() {
     if (nicknameInput.value === ''){
-        errorLabel.innerHTML = `Введіть спочатку нікнейм`
+        errorLabel.innerHTML = innerHtmls['errorLabel'][0][currentLanguage]
         return
     }
+    gameMode = 'singleplayer'
     socket.emit('play-offline', nicknameInput.value)
     setWdSize()
 }
+
+// Налаштування мови
+setLanguage(currentLanguage)
+document.getElementById(currentLanguage).classList.add('active')
+languageBlock.addEventListener('click', () => {
+    document.querySelector('.language-list').classList.toggle('active')
+})
+languageElements.forEach(le => le.addEventListener('click', () => {
+    if (le.classList.contains('active')) return
+    languageElements.forEach(le_ => le_.classList.remove('active'))
+    le.classList.add('active')
+    setLanguage(le.id)
+    currentLanguage = le.id
+    localStorage.setItem('language', le.id)
+    errorLabel.innerHTML = ''
+}))
 
 // Обробка копіювання коду кімнати
 gameCode.addEventListener('click', copyCode)
@@ -126,12 +153,11 @@ function changeGridGameOver() {
 
 // Обробка кількості гравців онлайн
 socket.on('cpc', (onlineNow) => {
-    document.querySelector('.online-now').querySelector('span').innerHTML = onlineNow
+    document.querySelector('.online-now .value').innerHTML = onlineNow
 })
 
 // Обробка запуску гри оффлайн
 socket.on('offline-game', () => {
-    gameMode = 'singleplayer'
     setNickname('bot', 0)
     startSinglePlayer()
     timerCount = 2
@@ -140,13 +166,14 @@ socket.on('offline-game', () => {
 
 // Запуск гри
 socket.on('init', code => {
-    gameMode = 'multiplayer'
     startMultiPlayer()
     init(code)
 })
 
 function init(code) {
-    if (code) gameCode.innerHTML = code
+    if (gameMode === 'private') gameCode.innerHTML = code
+    if (gameMode !== 'private') document.querySelector('.game-code-cont').style.display = 'none'
+    else document.querySelector('.game-code-cont').style.display = 'flex'
     menu.style.display = 'none'
     game.style.display = 'flex'
     startGame()
@@ -154,11 +181,11 @@ function init(code) {
 
 // Повідомлення про помилку заповненості кімнати
 socket.on('full-error', () => {
-    errorLabel.innerHTML = `Кімната недоступна`
+    errorLabel.innerHTML = innerHtmls['errorLabel'][2][currentLanguage]
 })
 // Повідомлення про помилку зайнятості нікнейму
 socket.on('nick-error', () => {
-    errorLabel.innerHTML = `Нікнейм недоступний`
+    errorLabel.innerHTML = innerHtmls['errorLabel'][3][currentLanguage]
 })
 
 // Запуск таймеру
@@ -234,8 +261,6 @@ async function computerShot() {
     playGameSingle()
 }
 function startSinglePlayer() {
-    document.querySelector('.game-code-cont').style.display = 'none'
-
     // Обробка натискання кнопки "Готовність"
     startButton.addEventListener('click', clickStartSimpleplayer)
     async function clickStartSimpleplayer() {
@@ -263,8 +288,6 @@ function startSinglePlayer() {
 
 // Запуск мультиплеєру
 function startMultiPlayer() {
-    document.querySelector('.game-code-cont').style.display = 'flex'
-
     // Отримання номеру поточного гравця
     socket.on('player-number', num => {
         playerNum = parseInt(num)
@@ -381,7 +404,7 @@ async function handleShot(e) {
         await waitForAnimation(square)
         square.classList.remove('checked')
         // Надсилання серверу id клітинки пострілу
-        if (gameMode === 'multiplayer') socket.emit('fire', shotFired)
+        if (gameMode !== 'singleplayer') socket.emit('fire', shotFired)
         else userShot(shotFired)
         await setPause(0.5)
         isShotAnimation = false
@@ -589,7 +612,7 @@ function shipsAutoSet() {
                 let firstId = Math.floor(Math.random()*Math.pow(width, 2))
                 if (isHorizontalComputer) {
                     for (let k=0; k<i; k++) filledIds.push(firstId+k)
-                    isLegalPosition = filledIds[0]%width <= filledIds[filledIds.length-1]%width  ? isLegalPosition : false
+                    isLegalPosition = filledIds[0]%width <=          filledIds[filledIds.length-1]%width  ? isLegalPosition : false
                 } else {
                     for (let k=0; k<i; k++) filledIds.push(firstId+k*width)
                     isLegalPosition = filledIds[filledIds.length-1] < 100 ? isLegalPosition : false
@@ -641,10 +664,10 @@ async function beginGame () {
     if (wdWidth <= 900) changeGrid(currentPlayer === 'user')
     // Установка ходу
     if(currentPlayer === 'user') {
-        turnDisplay.innerHTML = 'Ваш хід'
+        turnDisplay.innerHTML = innerHtmls['turnDisplay'][0][currentLanguage]
     }
     if(currentPlayer === 'enemy') {
-        turnDisplay.innerHTML = `Хід суперника`
+        turnDisplay.innerHTML = innerHtmls['turnDisplay'][1][currentLanguage]
     }
 }
 
@@ -761,7 +784,7 @@ function enemyGo(square) {
 function checkForWins(id) {
     let enemy = enemyNickname
     if (singleDeck1Count === 1 || singleDeck2Count === 1 || singleDeck3Count === 1 || singleDeck4Count === 1) {
-        fillInfoDisplay(`Ви потопили однопалубний ворожий корабель`)
+        fillInfoDisplay(`${innerHtmls['infoDisplay'][1][currentLanguage]}`)
         fillDestroyedShip(id)
         if (singleDeck1Count === 1) singleDeck1Count = 10
         if (singleDeck2Count === 1) singleDeck2Count = 10
@@ -771,7 +794,7 @@ function checkForWins(id) {
         document.querySelector('.ship-score-1-computer div').innerHTML = --score
     }
     if (doubleDeck1Count === 2 || doubleDeck2Count === 2 || doubleDeck3Count === 2) {
-        fillInfoDisplay(`Ви потопили двопалубний ворожий корабель`)
+        fillInfoDisplay(`${innerHtmls['infoDisplay'][2][currentLanguage]}`)
         fillDestroyedShip(id)
         if (doubleDeck1Count === 2) doubleDeck1Count = 10
         if (doubleDeck2Count === 2) doubleDeck2Count = 10
@@ -780,7 +803,7 @@ function checkForWins(id) {
         document.querySelector('.ship-score-2-computer div').innerHTML = --score
     }
     if (threeDeck1Count === 3 || threeDeck2Count === 3) {
-        fillInfoDisplay(`Ви потопили трипалубний ворожий корабель`)
+        fillInfoDisplay(`${innerHtmls['infoDisplay'][3][currentLanguage]}`)
         fillDestroyedShip(id)
         if (threeDeck1Count === 3) threeDeck1Count = 10
         if (threeDeck2Count === 3) threeDeck2Count = 10
@@ -788,16 +811,16 @@ function checkForWins(id) {
         document.querySelector('.ship-score-3-computer div').innerHTML = --score
     }
     if (fourDeck1Count === 4) {
-        fillInfoDisplay(`Ви потопили чотирипалубний ворожий корабель`)
+        fillInfoDisplay(`${innerHtmls['infoDisplay'][4][currentLanguage]}`)
         fillDestroyedShip(id)
         fourDeck1Count = 10
         let score = document.querySelector('.ship-score-4-computer div').textContent
         document.querySelector('.ship-score-4-computer div').innerHTML = --score
     }
     if (uSingleDeck1Count === 1 || uSingleDeck2Count === 1 || uSingleDeck3Count === 1 || uSingleDeck4Count === 1) {
-        fillInfoDisplay(`${enemy} потопив ваш однопалубний корабель`)
+        fillInfoDisplay(`${enemy} ${innerHtmls['infoDisplay'][5][currentLanguage]}`)
+        injureShotsComputer.forEach(inj => notAllowedShotComputer = fillBusy(inj, notAllowedShotComputer))
         injureShotsComputer = []
-        fillBusy(id, notAllowedShotComputer)
         if (uSingleDeck1Count === 1) uSingleDeck1Count = 10
         if (uSingleDeck2Count === 1) uSingleDeck2Count = 10
         if (uSingleDeck3Count === 1) uSingleDeck3Count = 10
@@ -806,9 +829,9 @@ function checkForWins(id) {
         document.querySelector('.ship-score-1-user div').innerHTML = --score
     }
     if (uDoubleDeck1Count === 2 || uDoubleDeck2Count === 2 || uDoubleDeck3Count === 2) {
-        fillInfoDisplay(`${enemy} потопив ваш двопалубний корабель`)
+        fillInfoDisplay(`${enemy} ${innerHtmls['infoDisplay'][6][currentLanguage]}`)
+        injureShotsComputer.forEach(inj => notAllowedShotComputer = fillBusy(inj, notAllowedShotComputer))
         injureShotsComputer = []
-        fillBusy(id, notAllowedShotComputer)
         if (uDoubleDeck1Count === 2) uDoubleDeck1Count = 10
         if (uDoubleDeck2Count === 2) uDoubleDeck2Count = 10
         if (uDoubleDeck3Count === 2) uDoubleDeck3Count = 10
@@ -816,18 +839,18 @@ function checkForWins(id) {
         document.querySelector('.ship-score-2-user div').innerHTML = --score
     }
     if (uThreeDeck1Count === 3 || uThreeDeck2Count === 3) {
-        fillInfoDisplay(`${enemy} потопив ваш трипалубний корабель`)
+        fillInfoDisplay(`${enemy} ${innerHtmls['infoDisplay'][7][currentLanguage]}`)
+        injureShotsComputer.forEach(inj => notAllowedShotComputer = fillBusy(inj, notAllowedShotComputer))
         injureShotsComputer = []
-        fillBusy(id, notAllowedShotComputer)
         if (uThreeDeck1Count === 3) uThreeDeck1Count = 10
         if (uThreeDeck2Count === 3) uThreeDeck2Count = 10
         let score = document.querySelector('.ship-score-3-user div').textContent
         document.querySelector('.ship-score-3-user div').innerHTML = --score
     }
     if (uFourDeck1Count === 4) {
-        fillInfoDisplay(`${enemy} потопив ваш чотирипалубний корабель`)
+        fillInfoDisplay(`${enemy} ${innerHtmls['infoDisplay'][8][currentLanguage]}`)
+        injureShotsComputer.forEach(inj => notAllowedShotComputer = fillBusy(inj, notAllowedShotComputer))
         injureShotsComputer = []
-        fillBusy(id, notAllowedShotComputer)
         uFourDeck1Count = 10;
         let score = document.querySelector('.ship-score-4-user div').textContent
         document.querySelector('.ship-score-4-user div').innerHTML = --score
@@ -839,11 +862,11 @@ function checkForWins(id) {
         +uDoubleDeck1Count+uDoubleDeck2Count+uDoubleDeck3Count+uThreeDeck1Count+uThreeDeck2Count+uFourDeck1Count;
     
     if (totalEnemyDamage === 100) {
-        turnDisplay.innerHTML = 'Перемога!'
+        turnDisplay.innerHTML = innerHtmls['turnDisplay'][2][currentLanguage]
         gameOver()
     }
     if (totalUserDamage === 100) {
-        turnDisplay.innerHTML = 'Поразка.'
+        turnDisplay.innerHTML = innerHtmls['turnDisplay'][3][currentLanguage]
         gameOver()
     }
 }
@@ -858,7 +881,7 @@ function gameOver() {
     // Надсилання "живих" кораблів
     let sendBoardIds = []
     sendBoardIds = [].slice.call(userGrid.children).filter(s => s.classList.contains('taken') && !s.classList.contains('boom'))
-    if (gameMode === 'multiplayer') socket.emit('send-board', sendBoardIds.map(s => s.dataset.id))
+    if (gameMode !== 'singleplayer') socket.emit('send-board', sendBoardIds.map(s => s.dataset.id))
     else showEnemyBoard(Object.keys(shipsComputer))
 }
 
@@ -946,7 +969,7 @@ function replay() {
     shipsComputer = {}
     notAllowedShotComputer = []
     injureShotsComputer = []
-    timerCount = gameMode === 'multiplayer' ? 0 : 2
+    timerCount = gameMode !== 'singleplayer' ? 0 : 2
 
     infoDisplay.innerHTML = `Розставте кораблі`
     turnDisplay.innerHTML = ``
