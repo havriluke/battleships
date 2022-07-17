@@ -119,7 +119,7 @@ export const innerHtmls = {
          {'en': 'Victory!',
          'ua': 'Перемога!'},
          {'en': 'Defeat.',
-         'ua': 'Ти поц..'},
+         'ua': 'Поразка.'},
     ],
     'infoDisplay': [
         {'en': 'Place ships',
