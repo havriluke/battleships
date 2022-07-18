@@ -5,7 +5,9 @@ import {innerHtmls} from './languages.js'
 let ships
 
 const DEFAULT_LANGUAGE = 'en'
+const DEFAULT_NICKNAME = ''
 let currentLanguage = localStorage.getItem('language') || DEFAULT_LANGUAGE
+let currentNickname = localStorage.getItem('nickname') || DEFAULT_NICKNAME
 
 // Ініціалізація основних html-елементів
 const menu = document.querySelector('.menu')
@@ -70,6 +72,7 @@ function clickCreate() {
         errorLabel.innerHTML = innerHtmls['errorLabel'][0][currentLanguage]
         return
     }
+    localStorage.setItem('nickname', nicknameInput.value)
     gameMode = 'private'
     // Еміт створення кімнати
     socket.emit('create-room', nicknameInput.value)
@@ -82,6 +85,7 @@ function clickJoin() {
     if (nicknameInput.value === '') errorLabel.innerHTML = innerHtmls['errorLabel'][0][currentLanguage]
     else if (joinRoomInput.value === '') errorLabel.innerHTML = innerHtmls['errorLabel'][1][currentLanguage]
     if (nicknameInput.value === '' || joinRoomInput.value === '') return
+    localStorage.setItem('nickname', nicknameInput.value)
     gameMode = 'private'
     // Еміт приєднання до кімнати
     socket.emit('join-room', joinRoomInput.value, nicknameInput.value)
@@ -95,6 +99,7 @@ function clickRandom() {
         errorLabel.innerHTML = innerHtmls['errorLabel'][0][currentLanguage]
         return
     }
+    localStorage.setItem('nickname', nicknameInput.value)
     gameMode = 'public'
     socket.emit('random-room', nicknameInput.value)
     setWdSize()
@@ -107,10 +112,14 @@ function clickOffline() {
         errorLabel.innerHTML = innerHtmls['errorLabel'][0][currentLanguage]
         return
     }
+    localStorage.setItem('nickname', nicknameInput.value)
     gameMode = 'singleplayer'
     socket.emit('play-offline', nicknameInput.value)
     setWdSize()
 }
+
+// Установка останнього нікнейму
+nicknameInput.value = currentNickname
 
 // Налаштування мови
 setLanguage(currentLanguage)
@@ -246,13 +255,15 @@ async function computerShot() {
         if (injureShotsComputer.length === 1) {
             recommendedChoises = [injureShotsComputer[0]-1, injureShotsComputer[0]+1,
                                   injureShotsComputer[0]+width, injureShotsComputer[0]-width]
-            if (injureShotsComputer[0] % width === 9) recommendedChoises = recommendedChoises.filter(s => s % width !== 0)
-            else if (injureShotsComputer[0] % width === 0) recommendedChoises = recommendedChoises.filter(s => s % width !== 9)
         }
         else {
             if (Math.abs(injureShotsComputer[0]-injureShotsComputer[1]) === 1) recommendedChoises = [Math.min(...injureShotsComputer)-1, Math.max(...injureShotsComputer)+1]
             else if (Math.abs(injureShotsComputer[0]-injureShotsComputer[1]) === width) recommendedChoises = [Math.min(...injureShotsComputer)-width, Math.max(...injureShotsComputer)+width]
         }
+        injureShotsComputer.forEach(isc => {
+            if (isc % width === 9) recommendedChoises = recommendedChoises.filter(s => s % width !== 0)
+            else if (isc % width === 0) recommendedChoises = recommendedChoises.filter(s => s % width !== 9)
+        })
     }
     recommendedChoises = recommendedChoises.filter(s => !notAllowedShotComputer.includes(s) && s >= 0 && s < 100)
     let choosenSquare = recommendedChoises[Math.floor(Math.random()*recommendedChoises.length)]
