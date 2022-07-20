@@ -393,11 +393,15 @@ function squaresSetup() {
         square.addEventListener('click', handleShot)
     })
     // Установка подій перетаскування для кораблів (мишка)
-    ships.forEach(ship => ship.addEventListener('dragstart', dragStart))
-    userSquares.forEach(square => square.addEventListener('dragstart', dragStart))
-    userSquares.forEach(square => square.addEventListener('dragover', dragOver))
-    userSquares.forEach(square => square.addEventListener('drop', dragDrop))
-    userSquares.forEach(square => square.addEventListener('dragleave', dragLeave))
+        // ships.forEach(ship => ship.addEventListener('dragstart', dragStart))
+        // userSquares.forEach(square => square.addEventListener('dragstart', dragStart))
+        // userSquares.forEach(square => square.addEventListener('dragover', dragOver))
+        // userSquares.forEach(square => square.addEventListener('drop', dragDrop))
+        // userSquares.forEach(square => square.addEventListener('dragleave', dragLeave))
+    ships.forEach(ship => ship.addEventListener('click', touchStart))
+    document.addEventListener('click', cancelDragShip)
+    userGrid.addEventListener('click', setDraggedShip)
+    setShipButton.addEventListener('click', setShip)
 
     // Установка подій перетаскування для кораблів (екран)
     ships.forEach(ship => ship.addEventListener('touchstart', touchStart))
@@ -982,7 +986,7 @@ function replay() {
     injureShotsComputer = []
     timerCount = gameMode !== 'singleplayer' ? 0 : 2
 
-    infoDisplay.innerHTML = `Розставте кораблі`
+    infoDisplay.innerHTML = innerHtmls['turnDisplay'][0][currentLanguage]
     turnDisplay.innerHTML = ``
     startButton.style.display = 'none'
     rotateButton.style.display = 'block'

@@ -357,7 +357,8 @@ button:hover {
   display: flex;
   flex-direction: row;
   margin: 5px;
-  cursor: grab;
+  /* cursor: grab; */
+  cursor: pointer;
   background-color: #fff;
   border: 2px solid var(--font-color);
 }
