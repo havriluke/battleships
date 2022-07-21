@@ -679,9 +679,13 @@ async function beginGame () {
     if (wdWidth <= 900) changeGrid(currentPlayer === 'user')
     // Установка ходу
     if(currentPlayer === 'user') {
+        turnDisplay.classList.remove('enemy-turn')
+        turnDisplay.classList.add('your-turn')
         turnDisplay.innerHTML = innerHtmls['turnDisplay'][0][currentLanguage]
     }
     if(currentPlayer === 'enemy') {
+        turnDisplay.classList.remove('your-turn')
+        turnDisplay.classList.add('enemy-turn')
         turnDisplay.innerHTML = innerHtmls['turnDisplay'][1][currentLanguage]
     }
 }
@@ -884,6 +888,11 @@ function checkForWins(id) {
         turnDisplay.innerHTML = innerHtmls['turnDisplay'][3][currentLanguage]
         gameOver()
     }
+    if (totalEnemyDamage === 100 || totalUserDamage === 100) {
+        turnDisplay.classList.remove('your-turn')
+        turnDisplay.classList.remove('enemy-turn')
+        turnDisplay.classList.add('end-game')
+    }
 }
 
 // Функція завершення гри
@@ -986,7 +995,8 @@ function replay() {
     injureShotsComputer = []
     timerCount = gameMode !== 'singleplayer' ? 0 : 2
 
-    infoDisplay.innerHTML = innerHtmls['turnDisplay'][0][currentLanguage]
+    infoDisplay.innerHTML = innerHtmls['infoDisplay'][0][currentLanguage]
+    turnDisplay.classList.remove('end-game')
     turnDisplay.innerHTML = ``
     startButton.style.display = 'none'
     rotateButton.style.display = 'block'
